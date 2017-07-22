@@ -5,6 +5,7 @@ import wx
 import moviepy.editor as mov
 from PIL import Image
 import os
+import thread
 # from __future__ import unicode_literals
 # import youtube_dl
 
@@ -38,7 +39,7 @@ class MainFrame(gui.MainFrame):
         self.currentFrame = None
         self.extremes = {'l': None, 'r': None}
         self.lastDirectory = ''
-
+        self.more_than_480p = None
     def draw_frame ( self, frame ):
         self.currentFrame = frame
         self.m_frame_bitmap.SetBitmap(
@@ -47,6 +48,7 @@ class MainFrame(gui.MainFrame):
         self.m_main_statusbar.SetStatusText(
             'Frame %d/%d'%(self.currentFrame, self.clipFrames), 2)
 
+
     def load_clip (self, filename ):
         self.clip = mov.VideoFileClip(filename)
         self.clipFrames = self.clip.duration*self.clip.fps
@@ -54,7 +56,7 @@ class MainFrame(gui.MainFrame):
         self.extremes = {'l': None, 'r': None}
         self.m_main_statusbar.SetStatusText('', 0)
         self.m_main_statusbar.SetStatusText('', 1)
-
+        self.more_than_480p = self.clip.size[1] > 480
         # should have a better way to resize the window based
         # on the size of the frame
         # b_main_sizer = self.GetSizer()
@@ -72,8 +74,7 @@ class MainFrame(gui.MainFrame):
         # b_main_sizer.Insert( 0, self.m_frame_bitmap, 1, wx.ALL|wx.EXPAND, 5 )
         self.draw_frame(0)
         self.SetSize(wx.Size(   self.clip.size[0]+50,
-                                self.clip.size[1]+150
-                            ))
+                                self.clip.size[1]+200))
         # b_main_sizer.SetMinSize(wx.Size(800,800))
 
     def skip( self, skip ):
@@ -81,25 +82,25 @@ class MainFrame(gui.MainFrame):
         if frame >= 0 and frame <= self.clipFrames:
             self.draw_frame(frame)
 
-    def export_gif( self, filename ):
-        # statusbar
-        zero = self.m_main_statusbar.GetStatusText(0)
-        one = self.m_main_statusbar.GetStatusText(1)
-        two = self.m_main_statusbar.GetStatusText(2)
-        self.m_main_statusbar.SetStatusText('', 0)
-        self.m_main_statusbar.SetStatusText('Saving gif...', 1)
-        self.m_main_statusbar.SetStatusText('', 2)
+    def update_progress_bar(self, cur, tot):
+        if cur + 1 >= tot:
+            wx.CallAfter(self.m_progress_bar.SetValue, 0)
+        else:
+            wx.CallAfter(self.m_progress_bar.SetValue, int(100*(cur)/tot))
 
-        self.Disable()
+    def export_gif( self, filename ):
         clip = (mov.VideoFileClip(self.source)
                 .subclip((self.extremes['l']/self.clip.fps),
-                         (self.extremes['r']/self.clip.fps)))
-        clip.write_gif(filename, program='ffmpeg')
-        self.Enable()
+                         (self.extremes['r']/self.clip.fps))
+                .resize(height=min(self.clip.size[1], self.m_spin_resolution.GetValue())))
 
-        self.m_main_statusbar.SetStatusText(zero, 0)
-        self.m_main_statusbar.SetStatusText(one, 1)
-        self.m_main_statusbar.SetStatusText(two, 2)
+        thread.start_new_thread(clip.write_gif, (filename,), {
+            'program': 'ffmpeg',
+            'fps': self.m_spin_fps.GetValue(),
+            'fuzz': self.m_spin_fuzz.GetValue(),
+            'progress_bar': False,
+            'progress_cb': self.update_progress_bar
+            })
 
     def open_file_dialog ( self, event ):
         openFileDialog = wx.FileDialog( self, "Open", self.lastDirectory, "",
@@ -181,7 +182,12 @@ class MainFrame(gui.MainFrame):
 
     def scrollbar_draw( self, event ):
         # if event.GetPosition() % int(self.clipFrames/100) < 20:
-        self.draw_frame(event.GetPosition())
+        if not self.more_than_480p:
+            self.draw_frame(event.GetPosition())
+
+    def scrollbar_change( self, event ):
+        if self.more_than_480p:
+            self.draw_frame(event.GetPosition())
 
 
 #mandatory in wx, create an app, False stands for not deteriction stdin/stdout
