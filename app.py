@@ -1,6 +1,4 @@
-#!/usr/bin/python
-
-#importing wx files
+#!/usr/bin/python2
 import wx
 import moviepy.editor as mov
 from PIL import Image
@@ -8,7 +6,6 @@ import os
 import thread
 # from __future__ import unicode_literals
 # import youtube_dl
-
 #import the newly created GUI file
 import gui
 
@@ -19,16 +16,20 @@ def ClipFrameToWxBitmap ( clip, frame ):
     bm = PilImageToWxBitmap(pil)
     return bm
 
+
 def WxImageToWxBitmap( myWxImage ):
     return myWxImage.ConvertToBitmap()
 
+
 def PilImageToWxBitmap( myPilImage ):
     return WxImageToWxBitmap( PilImageToWxImage( myPilImage ) )
+
 
 def PilImageToWxImage( myPilImage ):
     myWxImage = wx.EmptyImage( myPilImage.size[0], myPilImage.size[1] )
     myWxImage.SetData( myPilImage.convert( 'RGB' ).tobytes() )
     return myWxImage
+
 
 class MainFrame(gui.MainFrame):
     def __init__ (self, parent):
@@ -40,6 +41,7 @@ class MainFrame(gui.MainFrame):
         self.extremes = {'l': None, 'r': None}
         self.lastDirectory = ''
         self.more_than_480p = None
+
     def draw_frame ( self, frame ):
         self.currentFrame = frame
         self.m_frame_bitmap.SetBitmap(
@@ -47,7 +49,6 @@ class MainFrame(gui.MainFrame):
         self.m_frame_slider.SetValue(frame)
         self.m_main_statusbar.SetStatusText(
             'Frame %d/%d'%(self.currentFrame, self.clipFrames), 2)
-
 
     def load_clip (self, filename ):
         self.clip = mov.VideoFileClip(filename)
@@ -190,13 +191,13 @@ class MainFrame(gui.MainFrame):
             self.draw_frame(event.GetPosition())
 
 
-#mandatory in wx, create an app, False stands for not deteriction stdin/stdout
-#refer manual for details
-app = wx.App(False)
-
-#create an object of CalcFrame
-frame = MainFrame(None)
-#show the frame
-frame.Show(True)
-#start the applications
-app.MainLoop()
+if __name__ == "__main__":
+    #mandatory in wx, create an app, False stands for not deteriction stdin/stdout
+    #refer manual for details
+    app = wx.App(False)
+    #create an object of CalcFrame
+    frame = MainFrame(None)
+    #show the frame
+    frame.Show(True)
+    #start the applications
+    app.MainLoop()
